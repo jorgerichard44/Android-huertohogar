@@ -1,0 +1,47 @@
+<resources>
+    <string name="app_name">HuertoHogar</string>
+    <string name="login_title">Iniciar Sesión</string>
+    <string name="register_title">Registro</string>
+    <string name="catalog_title">Catálogo</string>
+    <string name="cart_title">Carrito</string>
+    <string name="profile_title">Perfil</string>
+
+    <!-- Login -->
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Contraseña</string>
+    <string name="login_button">Iniciar Sesión</string>
+    <string name="register_link">¿No tienes cuenta? Regístrate</string>
+
+    <!-- Register -->
+    <string name="name_hint">Nombre Completo</string>
+    <string name="phone_hint">Teléfono</string>
+    <string name="address_hint">Dirección</string>
+    <string name="confirm_password_hint">Confirmar Contraseña</string>
+    <string name="register_button">Registrarse</string>
+
+    <!-- Catalog -->
+    <string name="search_hint">Buscar productos...</string>
+    <string name="add_to_cart">Agregar al carrito</string>
+    <string name="product_added">Producto agregado al carrito</string>
+
+    <!-- Cart -->
+    <string name="empty_cart">Tu carrito está vacío</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="shipping">Envío</string>
+    <string name="total">Total</string>
+    <string name="place_order">Realizar Pedido</string>
+    <string name="order_success">¡Pedido realizado con éxito!</string>
+
+    <!-- Profile -->
+    <string name="edit_profile">Editar Perfil</string>
+    <string name="save_changes">Guardar Cambios</string>
+    <string name="logout">Cerrar Sesión</string>
+    <string name="logout_confirmation">¿Estás seguro que deseas cerrar sesión?</string>
+
+    <!-- Common -->
+    <string name="cancel">Cancelar</string>
+    <string name="confirm">Confirmar</string>
+    <string name="back">Volver</string>
+    <string name="error">Error</string>
+    <string name="loading">Cargando...</string>
+</resources>
