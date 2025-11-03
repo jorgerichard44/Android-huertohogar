@@ -1,63 +1,76 @@
 package com.example.huertohogar.ui.catalogo
 
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.huertohogar.data.model.Producto
+import com.example.huertohogar.ui.common.UIState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoFormScreen(
     viewModel: CatalogoViewModel,
-    productoId: Int? = null,
+    productoId: Int?,
     onNavigateBack: () -> Unit
 ) {
     var nombre by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var precio by remember { mutableStateOf("") }
-    var stock by remember { mutableStateOf("") }
     var categoria by remember { mutableStateOf("Verduras") }
-    var origen by remember { mutableStateOf("") }
-    var imagenUrl by remember { mutableStateOf("") }
-    var disponible by remember { mutableStateOf(true) }
+    var stock by remember { mutableStateOf("") }
+    var esOrganico by remember { mutableStateOf(true) }
+    var expanded by remember { mutableStateOf(false) }
 
-    val categorias = listOf("Verduras", "Frutas", "Hortalizas", "Legumbres")
-    var expandedCategoria by remember { mutableStateOf(false) }
+    val productoState by viewModel.productoState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    // Cargar datos si es edición
     LaunchedEffect(productoId) {
         productoId?.let { id ->
             viewModel.obtenerProductoPorId(id)?.let { producto ->
                 nombre = producto.nombre
                 descripcion = producto.descripcion
                 precio = producto.precio.toString()
-                stock = producto.stock.toString()
                 categoria = producto.categoria
-                origen = producto.origen
-                imagenUrl = producto.imagenUrl
-                disponible = producto.disponible
+                stock = producto.stock.toString()
+                esOrganico = producto.esOrganico
             }
         }
     }
 
+    LaunchedEffect(productoState) {
+        when (val state = productoState) {
+            is UIState.Success -> {
+                snackbarHostState.showSnackbar("Producto guardado exitosamente")
+                onNavigateBack()
+                viewModel.resetState()
+            }
+            is UIState.Error -> {
+                snackbarHostState.showSnackbar(state.message)
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    Text(if (productoId == null) "Nuevo Producto" else "Editar Producto")
-                },
+                title = { Text(if (productoId == null) "Nuevo Producto" else "Editar Producto") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )
@@ -67,111 +80,88 @@ fun ProductoFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Nombre
             OutlinedTextField(
                 value = nombre,
                 onValueChange = { nombre = it },
-                label = { Text("Nombre del Producto") },
+                label = { Text("Nombre del producto") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            // Descripción
             OutlinedTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
                 label = { Text("Descripción") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5
+                maxLines = 3
             )
 
-            // Precio
             OutlinedTextField(
                 value = precio,
                 onValueChange = { precio = it },
-                label = { Text("Precio (CLP)") },
+                label = { Text("Precio") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                prefix = { Text("$") }
+                singleLine = true
             )
 
-            // Stock
-            OutlinedTextField(
-                value = stock,
-                onValueChange = { stock = it },
-                label = { Text("Stock") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-
-            // Categoría (Dropdown)
             ExposedDropdownMenuBox(
-                expanded = expandedCategoria,
-                onExpandedChange = { expandedCategoria = !expandedCategoria }
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
             ) {
                 OutlinedTextField(
                     value = categoria,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Categoría") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
 
                 ExposedDropdownMenu(
-                    expanded = expandedCategoria,
-                    onDismissRequest = { expandedCategoria = false }
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
                 ) {
-                    categorias.forEach { cat ->
+                    listOf("Verduras", "Frutas", "Hierbas").forEach { cat ->
                         DropdownMenuItem(
                             text = { Text(cat) },
                             onClick = {
                                 categoria = cat
-                                expandedCategoria = false
+                                expanded = false
                             }
                         )
                     }
                 }
             }
 
-            // Origen
             OutlinedTextField(
-                value = origen,
-                onValueChange = { origen = it },
-                label = { Text("Origen/Región") },
-                modifier = Modifier.fillMaxWidth()
+                value = stock,
+                onValueChange = { stock = it },
+                label = { Text("Stock") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
-            // URL de Imagen
-            OutlinedTextField(
-                value = imagenUrl,
-                onValueChange = { imagenUrl = it },
-                label = { Text("URL de Imagen (opcional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Disponible (Switch)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Producto Disponible", style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = disponible,
-                    onCheckedChange = { disponible = it }
+                Checkbox(
+                    checked = esOrganico,
+                    onCheckedChange = { esOrganico = it }
                 )
+                Text("Producto orgánico")
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Botón Guardar
             Button(
                 onClick = {
                     val producto = Producto(
@@ -179,25 +169,27 @@ fun ProductoFormScreen(
                         nombre = nombre,
                         descripcion = descripcion,
                         precio = precio.toDoubleOrNull() ?: 0.0,
-                        stock = stock.toIntOrNull() ?: 0,
                         categoria = categoria,
-                        origen = origen,
-                        imagenUrl = imagenUrl,
-                        disponible = disponible
+                        stock = stock.toIntOrNull() ?: 0,
+                        esOrganico = esOrganico
                     )
-
-                    if (productoId == null) {
-                        viewModel.insertarProducto(producto)
-                    } else {
-                        viewModel.actualizarProducto(producto)
-                    }
-
-                    onNavigateBack()
+                    viewModel.guardarProducto(producto)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = nombre.isNotBlank() && precio.isNotBlank() && stock.isNotBlank()
+                enabled = productoState !is UIState.Loading &&
+                        nombre.isNotBlank() &&
+                        descripcion.isNotBlank() &&
+                        precio.isNotBlank() &&
+                        stock.isNotBlank()
             ) {
-                Text(if (productoId == null) "Agregar Producto" else "Guardar Cambios")
+                if (productoState is UIState.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Guardar Producto")
+                }
             }
         }
     }

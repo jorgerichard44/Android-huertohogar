@@ -18,11 +18,10 @@ import androidx.room.ForeignKey
 data class Pedido(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-
     val usuarioId: Int,
     val fechaPedido: Long = System.currentTimeMillis(),
     val total: Double,
-    val estado: String, // "Pendiente", "En proceso", "Enviado", "Entregado"
+    val estado: String, // "Pendiente", "En proceso", "Enviado", "Entregado", "Cancelado"
     val direccionEntrega: String,
     val metodoPago: String // "Tarjeta", "Transferencia", "Efectivo"
 )

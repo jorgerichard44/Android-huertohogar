@@ -7,13 +7,11 @@ import androidx.room.PrimaryKey
 data class Producto(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-
     val nombre: String,
     val descripcion: String,
     val precio: Double,
+    val categoria: String, // "Verduras", "Frutas", "Hierbas"
     val stock: Int,
-    val categoria: String, // Ej: "Frutas", "Verduras", "Hortalizas"
-    val imagen: String? = null, // URL o nombre del recurso
-    val unidad: String = "kg", // kg, unidad, etc.
-    val disponible: Boolean = true
+    val imagen: String = "", // URL o nombre de recurso
+    val esOrganico: Boolean = true
 )

@@ -1,6 +1,5 @@
 package com.example.huertohogar.ui.catalogo
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.huertohogar.data.model.Producto
 import com.example.huertohogar.ui.carrito.CarritoViewModel
@@ -23,36 +21,28 @@ fun CatalogoScreen(
     onNavigateToProductoForm: (Int?) -> Unit,
     onOpenDrawer: () -> Unit
 ) {
-    val productos by viewModel.productos.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val productosFiltrados by viewModel.productosFiltrados.collectAsState()
+    val categoriaSeleccionada by viewModel.categoriaSeleccionada.collectAsState()
+    val busqueda by viewModel.busqueda.collectAsState()
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategoria by remember { mutableStateOf("Todos") }
-
-    val categorias = listOf("Todos", "Verduras", "Frutas", "Hortalizas", "Legumbres")
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Catálogo de Productos") },
+                title = { Text("HUERTO HOGAR") },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, "Menú")
+                        Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 },
                 actions = {
                     IconButton(onClick = { onNavigateToProductoForm(null) }) {
-                        Icon(Icons.Default.Add, "Agregar Producto")
+                        Icon(Icons.Default.Add, contentDescription = "Agregar producto")
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToProductoForm(null) }
-            ) {
-                Icon(Icons.Default.Add, "Agregar")
-            }
         }
     ) { padding ->
         Column(
@@ -60,77 +50,78 @@ fun CatalogoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // ✅ Barra de búsqueda
+            // Barra de búsqueda
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    viewModel.buscarProductos(it)
+                value = busqueda,
+                onValueChange = { viewModel.onBusquedaChange(it) },
+                label = { Text("Buscar productos...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
                 },
-                label = { Text("Buscar productos") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 singleLine = true
             )
 
-            // ✅ Filtro de categorías
+            // Filtros por categoría
             ScrollableTabRow(
-                selectedTabIndex = categorias.indexOf(selectedCategoria),
+                selectedTabIndex = when (categoriaSeleccionada) {
+                    "Todos" -> 0
+                    "Verduras" -> 1
+                    "Frutas" -> 2
+                    "Hierbas" -> 3
+                    else -> 0
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                categorias.forEach { categoria ->
-                    Tab(
-                        selected = selectedCategoria == categoria,
-                        onClick = {
-                            selectedCategoria = categoria
-                            viewModel.filtrarPorCategoria(categoria)
-                        },
-                        text = { Text(categoria) }
-                    )
-                }
+                Tab(
+                    selected = categoriaSeleccionada == "Todos",
+                    onClick = { viewModel.onCategoriaChange("Todos") },
+                    text = { Text("Todos") }
+                )
+                Tab(
+                    selected = categoriaSeleccionada == "Verduras",
+                    onClick = { viewModel.onCategoriaChange("Verduras") },
+                    text = { Text("Verduras") }
+                )
+                Tab(
+                    selected = categoriaSeleccionada == "Frutas",
+                    onClick = { viewModel.onCategoriaChange("Frutas") },
+                    text = { Text("Frutas") }
+                )
+                Tab(
+                    selected = categoriaSeleccionada == "Hierbas",
+                    onClick = { viewModel.onCategoriaChange("Hierbas") },
+                    text = { Text("Hierbas") }
+                )
             }
 
-            // ✅ Lista de productos
-            if (isLoading) {
+            // Lista de productos
+            if (productosFiltrados.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
-                }
-            } else if (productos.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.ShoppingBag,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "No hay productos disponibles",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
+                    Text("No hay productos disponibles")
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(productos, key = { it.id }) { producto ->
+                    items(productosFiltrados) { producto ->
                         ProductoCard(
                             producto = producto,
-                            onEdit = { onNavigateToProductoForm(producto.id) },
-                            onDelete = { viewModel.eliminarProducto(producto) },
-                            onAddToCart = { carritoViewModel.agregarProducto(producto) }
+                            onAgregarAlCarrito = {
+                                carritoViewModel.agregarProducto(producto)
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                    snackbarHostState.showSnackbar("${producto.nombre} agregado al carrito")
+                                }
+                            },
+                            onEditar = { onNavigateToProductoForm(producto.id) },
+                            onEliminar = { viewModel.eliminarProducto(producto) }
                         )
                     }
                 }
@@ -143,15 +134,13 @@ fun CatalogoScreen(
 @Composable
 fun ProductoCard(
     producto: Producto,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onAddToCart: () -> Unit
+    onAgregarAlCarrito: () -> Unit,
+    onEditar: () -> Unit,
+    onEliminar: () -> Unit
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
@@ -166,54 +155,41 @@ fun ProductoCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = producto.nombre,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        style = MaterialTheme.typography.titleLarge
                     )
-
                     Text(
                         text = producto.descripcion,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "$${producto.precio}",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Text(
-                            text = "Stock: ${producto.stock}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
                     Text(
-                        text = "Origen: ${producto.origen}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Categoría: ${producto.categoria}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Stock: ${producto.stock}",
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 
-                Column {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, "Editar")
-                    }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(
-                            Icons.Default.Delete,
-                            "Eliminar",
-                            tint = MaterialTheme.colorScheme.error
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "$${producto.precio}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (producto.esOrganico) {
+                        AssistChip(
+                            onClick = { },
+                            label = { Text("Orgánico") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Eco,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                     }
                 }
@@ -221,39 +197,28 @@ fun ProductoCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
-                onClick = onAddToCart,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = producto.disponible && producto.stock > 0
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.AddShoppingCart, null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Agregar al Carrito")
+                Button(
+                    onClick = onAgregarAlCarrito,
+                    modifier = Modifier.weight(1f),
+                    enabled = producto.stock > 0
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Agregar")
+                }
+
+                IconButton(onClick = onEditar) {
+                    Icon(Icons.Default.Edit, contentDescription = "Editar")
+                }
+
+                IconButton(onClick = onEliminar) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+                }
             }
         }
-    }
-
-    // ✅ Diálogo de confirmación de eliminación
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eliminar Producto") },
-            text = { Text("¿Estás seguro de que deseas eliminar '${producto.nombre}'?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
     }
 }

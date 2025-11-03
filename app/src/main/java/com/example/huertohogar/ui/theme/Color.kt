@@ -2,10 +2,10 @@ package com.example.huertohogar.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Verde80 = Color(0xFF4CAF50)
-val VerdeGris80 = Color(0xFF81C784)
-val Naranja80 = Color(0xFFFF9800)
+val Green80 = Color(0xFF81C784)
+val GreenGrey80 = Color(0xFFA5D6A7)
+val Lime80 = Color(0xFFDCE775)
 
-val Verde40 = Color(0xFF2E7D32)
-val VerdeGris40 = Color(0xFF388E3C)
-val Naranja40 = Color(0xFFF57C00)
+val Green40 = Color(0xFF388E3C)
+val GreenGrey40 = Color(0xFF66BB6A)
+val Lime40 = Color(0xFFC0CA33)

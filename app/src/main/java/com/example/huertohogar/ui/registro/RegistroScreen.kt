@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.huertohogar.ui.common.UIState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,57 +23,49 @@ fun RegistroScreen(
     onNavigateToLogin: () -> Unit,
     onRegistroExitoso: () -> Unit
 ) {
-    var nombre by remember { mutableStateOf("") }
-    var apellido by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var telefono by remember { mutableStateOf("") }
-    var direccion by remember { mutableStateOf("") }
-    var ciudad by remember { mutableStateOf("") }
-    var region by remember { mutableStateOf("") }
+    val registroState by viewModel.registroState.collectAsState()
+    val nombre by viewModel.nombre.collectAsState()
+    val email by viewModel.email.collectAsState()
+    val password by viewModel.password.collectAsState()
+    val confirmarPassword by viewModel.confirmarPassword.collectAsState()
+    val telefono by viewModel.telefono.collectAsState()
+    val direccion by viewModel.direccion.collectAsState()
+
+    val nombreError by viewModel.nombreError.collectAsState()
+    val emailError by viewModel.emailError.collectAsState()
+    val passwordError by viewModel.passwordError.collectAsState()
+    val confirmarPasswordError by viewModel.confirmarPasswordError.collectAsState()
 
     var passwordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
-    var expandedRegion by remember { mutableStateOf(false) }
+    var confirmarPasswordVisible by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val regiones = listOf(
-        "Región Metropolitana",
-        "Valparaíso",
-        "Biobío",
-        "Maule",
-        "La Araucanía",
-        "Los Lagos",
-        "O'Higgins",
-        "Coquimbo",
-        "Antofagasta",
-        "Atacama",
-        "Tarapacá",
-        "Arica y Parinacota",
-        "Los Ríos",
-        "Aysén",
-        "Magallanes",
-        "Ñuble"
-    )
-
-    val registroExitoso by viewModel.registroExitoso.collectAsState()
-    val errorMensaje by viewModel.errorMensaje.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-
-    // Observar registro exitoso
-    LaunchedEffect(registroExitoso) {
-        if (registroExitoso) {
-            onRegistroExitoso()
+    LaunchedEffect(registroState) {
+        when (val state = registroState) {
+            is UIState.Success -> {
+                snackbarHostState.showSnackbar("Registro exitoso")
+                onRegistroExitoso()
+                viewModel.resetState()
+            }
+            is UIState.Error -> {
+                snackbarHostState.showSnackbar(
+                    message = state.message,
+                    duration = SnackbarDuration.Short
+                )
+                viewModel.resetState()
+            }
+            else -> {}
         }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Crear Cuenta") },
+                title = { Text("Registro") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateToLogin) {
-                        Icon(Icons.Default.ArrowBack, "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )
@@ -82,240 +75,137 @@ fun RegistroScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Icono
             Icon(
-                imageVector = Icons.Default.AccountCircle,
+                imageVector = Icons.Default.PersonAdd,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             Text(
-                text = "Regístrate en HuertoHogar",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary
+                text = "Crear Cuenta",
+                style = MaterialTheme.typography.headlineMedium
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Nombre
             OutlinedTextField(
                 value = nombre,
-                onValueChange = { nombre = it },
-                label = { Text("Nombre") },
-                leadingIcon = { Icon(Icons.Default.Person, null) },
+                onValueChange = { viewModel.onNombreChange(it) },
+                label = { Text("Nombre completo") },
+                leadingIcon = {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                },
+                isError = nombreError != null,
+                supportingText = {
+                    nombreError?.let { Text(it) }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Apellido
-            OutlinedTextField(
-                value = apellido,
-                onValueChange = { apellido = it },
-                label = { Text("Apellido") },
-                leadingIcon = { Icon(Icons.Default.Person, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Email
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { viewModel.onEmailChange(it) },
                 label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, null) },
+                leadingIcon = {
+                    Icon(Icons.Default.Email, contentDescription = null)
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                isError = emailError != null,
+                supportingText = {
+                    emailError?.let { Text(it) }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { viewModel.onPasswordChange(it) },
+                label = { Text("Contraseña") },
+                leadingIcon = {
+                    Icon(Icons.Default.Lock, contentDescription = null)
+                },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.Visibility
+                            else Icons.Default.VisibilityOff,
+                            contentDescription = null
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None
+                else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                isError = passwordError != null,
+                supportingText = {
+                    passwordError?.let { Text(it) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
-            // Teléfono
+            OutlinedTextField(
+                value = confirmarPassword,
+                onValueChange = { viewModel.onConfirmarPasswordChange(it) },
+                label = { Text("Confirmar contraseña") },
+                leadingIcon = {
+                    Icon(Icons.Default.Lock, contentDescription = null)
+                },
+                trailingIcon = {
+                    IconButton(onClick = { confirmarPasswordVisible = !confirmarPasswordVisible }) {
+                        Icon(
+                            imageVector = if (confirmarPasswordVisible) Icons.Default.Visibility
+                            else Icons.Default.VisibilityOff,
+                            contentDescription = null
+                        )
+                    }
+                },
+                visualTransformation = if (confirmarPasswordVisible) VisualTransformation.None
+                else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                isError = confirmarPasswordError != null,
+                supportingText = {
+                    confirmarPasswordError?.let { Text(it) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
             OutlinedTextField(
                 value = telefono,
-                onValueChange = { telefono = it },
-                label = { Text("Teléfono") },
-                leadingIcon = { Icon(Icons.Default.Phone, null) },
+                onValueChange = { viewModel.onTelefonoChange(it) },
+                label = { Text("Teléfono (opcional)") },
+                leadingIcon = {
+                    Icon(Icons.Default.Phone, contentDescription = null)
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Dirección
             OutlinedTextField(
                 value = direccion,
-                onValueChange = { direccion = it },
-                label = { Text("Dirección") },
-                leadingIcon = { Icon(Icons.Default.Home, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Ciudad
-            OutlinedTextField(
-                value = ciudad,
-                onValueChange = { ciudad = it },
-                label = { Text("Ciudad") },
-                leadingIcon = { Icon(Icons.Default.LocationCity, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Región (Dropdown)
-            ExposedDropdownMenuBox(
-                expanded = expandedRegion,
-                onExpandedChange = { expandedRegion = !expandedRegion }
-            ) {
-                OutlinedTextField(
-                    value = region,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Región") },
-                    leadingIcon = { Icon(Icons.Default.Place, null) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRegion) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-
-                ExposedDropdownMenu(
-                    expanded = expandedRegion,
-                    onDismissRequest = { expandedRegion = false }
-                ) {
-                    regiones.forEach { reg ->
-                        DropdownMenuItem(
-                            text = { Text(reg) },
-                            onClick = {
-                                region = reg
-                                expandedRegion = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Contraseña
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.Visibility
-                            else Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Ocultar" else "Mostrar"
-                        )
-                    }
+                onValueChange = { viewModel.onDireccionChange(it) },
+                label = { Text("Dirección (opcional)") },
+                leadingIcon = {
+                    Icon(Icons.Default.Home, contentDescription = null)
                 },
-                visualTransformation = if (passwordVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                maxLines = 2
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Confirmar Contraseña
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("Confirmar Contraseña") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
-                trailingIcon = {
-                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                        Icon(
-                            if (confirmPasswordVisible) Icons.Default.Visibility
-                            else Icons.Default.VisibilityOff,
-                            contentDescription = if (confirmPasswordVisible) "Ocultar" else "Mostrar"
-                        )
-                    }
-                },
-                visualTransformation = if (confirmPasswordVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = confirmPassword.isNotEmpty() && password != confirmPassword
-            )
-
-            if (confirmPassword.isNotEmpty() && password != confirmPassword) {
-                Text(
-                    text = "Las contraseñas no coinciden",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Mensaje de error
-            errorMensaje?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Botón Registrar
             Button(
-                onClick = {
-                    if (password == confirmPassword) {
-                        viewModel.registrarUsuario(
-                            nombre = nombre,
-                            apellido = apellido,
-                            email = email,
-                            password = password,
-                            telefono = telefono,
-                            direccion = direccion,
-                            ciudad = ciudad,
-                            region = region
-                        )
-                    }
-                },
+                onClick = { viewModel.registrar() },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = nombre.isNotBlank() &&
-                        apellido.isNotBlank() &&
-                        email.isNotBlank() &&
-                        password.isNotBlank() &&
-                        confirmPassword.isNotBlank() &&
-                        password == confirmPassword &&
-                        telefono.isNotBlank() &&
-                        !isLoading
+                enabled = registroState !is UIState.Loading
             ) {
-                if (isLoading) {
+                if (registroState is UIState.Loading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.onPrimary
@@ -325,14 +215,12 @@ fun RegistroScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Botón volver a Login
-            TextButton(onClick = onNavigateToLogin) {
+            TextButton(
+                onClick = onNavigateToLogin,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("¿Ya tienes cuenta? Inicia sesión")
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
