@@ -1,7 +1,5 @@
 package com.example.huertohogar.ui.registro
 
-
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,141 +10,58 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.huertohogar.data.model.Usuario
-import com.example.huertohogar.data.repository.AuthRepository
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-
-data class RegistroUiState(
-    val nombre: String = "",
-    val email: String = "",
-    val password: String = "",
-    val confirmarPassword: String = "",
-    val telefono: String = "",
-    val direccion: String = "",
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val registroExitoso: Boolean = false
-)
-
-class RegistroViewModel(
-    private val authRepository: AuthRepository = AuthRepository()
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(RegistroUiState())
-    val uiState: StateFlow<RegistroUiState> = _uiState
-
-    fun onNombreChange(nombre: String) {
-        _uiState.value = _uiState.value.copy(nombre = nombre, errorMessage = null)
-    }
-
-    fun onEmailChange(email: String) {
-        _uiState.value = _uiState.value.copy(email = email, errorMessage = null)
-    }
-
-    fun onPasswordChange(password: String) {
-        _uiState.value = _uiState.value.copy(password = password, errorMessage = null)
-    }
-
-    fun onConfirmarPasswordChange(confirmarPassword: String) {
-        _uiState.value = _uiState.value.copy(confirmarPassword = confirmarPassword, errorMessage = null)
-    }
-
-    fun onTelefonoChange(telefono: String) {
-        _uiState.value = _uiState.value.copy(telefono = telefono, errorMessage = null)
-    }
-
-    fun onDireccionChange(direccion: String) {
-        _uiState.value = _uiState.value.copy(direccion = direccion, errorMessage = null)
-    }
-
-    fun registrar() {
-        viewModelScope.launch {
-            val state = _uiState.value
-
-            // Validaciones
-            if (state.nombre.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "El nombre es obligatorio")
-                return@launch
-            }
-
-            if (state.email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(state.email).matches()) {
-                _uiState.value = state.copy(errorMessage = "Email inválido")
-                return@launch
-            }
-
-            if (state.password.length < 6) {
-                _uiState.value = state.copy(errorMessage = "La contraseña debe tener al menos 6 caracteres")
-                return@launch
-            }
-
-            if (state.password != state.confirmarPassword) {
-                _uiState.value = state.copy(errorMessage = "Las contraseñas no coinciden")
-                return@launch
-            }
-
-            if (state.telefono.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "El teléfono es obligatorio")
-                return@launch
-            }
-
-            if (state.direccion.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "La dirección es obligatoria")
-                return@launch
-            }
-
-            _uiState.value = state.copy(isLoading = true, errorMessage = null)
-
-            val nuevoUsuario = Usuario(
-                nombre = state.nombre,
-                email = state.email,
-                password = state.password,
-                telefono = state.telefono,
-                direccion = state.direccion
-            )
-
-            val result = authRepository.registro(nuevoUsuario)
-
-            result.fold(
-                onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        registroExitoso = true
-                    )
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "Error desconocido"
-                    )
-                }
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistroScreen(
-    onNavigateBack: () -> Unit,
-    onRegistroExitoso: () -> Unit,
-    viewModel: RegistroViewModel = viewModel()
+    viewModel: RegistroViewModel,
+    onNavigateToLogin: () -> Unit,
+    onRegistroExitoso: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    var passwordVisible by remember { mutableStateOf(false) }
-    var confirmarPasswordVisible by remember { mutableStateOf(false) }
+    var nombre by remember { mutableStateOf("") }
+    var apellido by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var telefono by remember { mutableStateOf("") }
+    var direccion by remember { mutableStateOf("") }
+    var ciudad by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf("") }
 
-    LaunchedEffect(uiState.registroExitoso) {
-        if (uiState.registroExitoso) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var expandedRegion by remember { mutableStateOf(false) }
+
+    val regiones = listOf(
+        "Región Metropolitana",
+        "Valparaíso",
+        "Biobío",
+        "Maule",
+        "La Araucanía",
+        "Los Lagos",
+        "O'Higgins",
+        "Coquimbo",
+        "Antofagasta",
+        "Atacama",
+        "Tarapacá",
+        "Arica y Parinacota",
+        "Los Ríos",
+        "Aysén",
+        "Magallanes",
+        "Ñuble"
+    )
+
+    val registroExitoso by viewModel.registroExitoso.collectAsState()
+    val errorMensaje by viewModel.errorMensaje.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    // Observar registro exitoso
+    LaunchedEffect(registroExitoso) {
+        if (registroExitoso) {
             onRegistroExitoso()
         }
     }
@@ -154,177 +69,253 @@ fun RegistroScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Registro") },
+                title = { Text("Crear Cuenta") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    IconButton(onClick = onNavigateToLogin) {
+                        Icon(Icons.Default.ArrowBack, "Volver")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                }
             )
         }
-    ) { paddingValues ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp)
+                .padding(padding)
+                .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Crear Cuenta",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Completa tus datos para registrarte",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Campo Nombre
-            OutlinedTextField(
-                value = uiState.nombre,
-                onValueChange = { viewModel.onNombreChange(it) },
-                label = { Text("Nombre Completo") },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = "Nombre")
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            // Icono
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo Email
+            Text(
+                text = "Regístrate en HuertoHogar",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Nombre
             OutlinedTextField(
-                value = uiState.email,
-                onValueChange = { viewModel.onEmailChange(it) },
+                value = nombre,
+                onValueChange = { nombre = it },
+                label = { Text("Nombre") },
+                leadingIcon = { Icon(Icons.Default.Person, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Apellido
+            OutlinedTextField(
+                value = apellido,
+                onValueChange = { apellido = it },
+                label = { Text("Apellido") },
+                leadingIcon = { Icon(Icons.Default.Person, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Email
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
                 label = { Text("Email") },
-                leadingIcon = {
-                    Icon(Icons.Default.Email, contentDescription = "Email")
-                },
+                leadingIcon = { Icon(Icons.Default.Email, null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Teléfono
+            // Teléfono
             OutlinedTextField(
-                value = uiState.telefono,
-                onValueChange = { viewModel.onTelefonoChange(it) },
+                value = telefono,
+                onValueChange = { telefono = it },
                 label = { Text("Teléfono") },
-                leadingIcon = {
-                    Icon(Icons.Default.Phone, contentDescription = "Teléfono")
-                },
+                leadingIcon = { Icon(Icons.Default.Phone, null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("+56912345678") }
+                singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Dirección
+            // Dirección
             OutlinedTextField(
-                value = uiState.direccion,
-                onValueChange = { viewModel.onDireccionChange(it) },
-                label = { Text("Dirección de Entrega") },
-                leadingIcon = {
-                    Icon(Icons.Default.Home, contentDescription = "Dirección")
-                },
+                value = direccion,
+                onValueChange = { direccion = it },
+                label = { Text("Dirección") },
+                leadingIcon = { Icon(Icons.Default.Home, null) },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 3
+                singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Password
+            // Ciudad
             OutlinedTextField(
-                value = uiState.password,
-                onValueChange = { viewModel.onPasswordChange(it) },
+                value = ciudad,
+                onValueChange = { ciudad = it },
+                label = { Text("Ciudad") },
+                leadingIcon = { Icon(Icons.Default.LocationCity, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Región (Dropdown)
+            ExposedDropdownMenuBox(
+                expanded = expandedRegion,
+                onExpandedChange = { expandedRegion = !expandedRegion }
+            ) {
+                OutlinedTextField(
+                    value = region,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Región") },
+                    leadingIcon = { Icon(Icons.Default.Place, null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRegion) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expandedRegion,
+                    onDismissRequest = { expandedRegion = false }
+                ) {
+                    regiones.forEach { reg ->
+                        DropdownMenuItem(
+                            text = { Text(reg) },
+                            onClick = {
+                                region = reg
+                                expandedRegion = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Contraseña
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
                 label = { Text("Contraseña") },
-                leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = "Contraseña")
-                },
+                leadingIcon = { Icon(Icons.Default.Lock, null) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility
+                            if (passwordVisible) Icons.Default.Visibility
                             else Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Ocultar contraseña"
-                            else "Mostrar contraseña"
+                            contentDescription = if (passwordVisible) "Ocultar" else "Mostrar"
                         )
                     }
                 },
-                visualTransformation = if (passwordVisible) VisualTransformation.None
-                else PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible)
+                    VisualTransformation.None
+                else
+                    PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo Confirmar Password
+            // Confirmar Contraseña
             OutlinedTextField(
-                value = uiState.confirmarPassword,
-                onValueChange = { viewModel.onConfirmarPasswordChange(it) },
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
                 label = { Text("Confirmar Contraseña") },
-                leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = "Confirmar Contraseña")
-                },
+                leadingIcon = { Icon(Icons.Default.Lock, null) },
                 trailingIcon = {
-                    IconButton(onClick = { confirmarPasswordVisible = !confirmarPasswordVisible }) {
+                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                         Icon(
-                            imageVector = if (confirmarPasswordVisible) Icons.Default.Visibility
+                            if (confirmPasswordVisible) Icons.Default.Visibility
                             else Icons.Default.VisibilityOff,
-                            contentDescription = if (confirmarPasswordVisible) "Ocultar contraseña"
-                            else "Mostrar contraseña"
+                            contentDescription = if (confirmPasswordVisible) "Ocultar" else "Mostrar"
                         )
                     }
                 },
-                visualTransformation = if (confirmarPasswordVisible) VisualTransformation.None
-                else PasswordVisualTransformation(),
+                visualTransformation = if (confirmPasswordVisible)
+                    VisualTransformation.None
+                else
+                    PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                isError = confirmPassword.isNotEmpty() && password != confirmPassword
             )
+
+            if (confirmPassword.isNotEmpty() && password != confirmPassword) {
+                Text(
+                    text = "Las contraseñas no coinciden",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             // Mensaje de error
-            if (uiState.errorMessage != null) {
+            errorMensaje?.let { error ->
                 Text(
-                    text = uiState.errorMessage!!,
+                    text = error,
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Botón Registrar
             Button(
-                onClick = { viewModel.registrar() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                enabled = !uiState.isLoading
+                onClick = {
+                    if (password == confirmPassword) {
+                        viewModel.registrarUsuario(
+                            nombre = nombre,
+                            apellido = apellido,
+                            email = email,
+                            password = password,
+                            telefono = telefono,
+                            direccion = direccion,
+                            ciudad = ciudad,
+                            region = region
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = nombre.isNotBlank() &&
+                        apellido.isNotBlank() &&
+                        email.isNotBlank() &&
+                        password.isNotBlank() &&
+                        confirmPassword.isNotBlank() &&
+                        password == confirmPassword &&
+                        telefono.isNotBlank() &&
+                        !isLoading
             ) {
-                if (uiState.isLoading) {
+                if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.onPrimary
@@ -336,9 +327,12 @@ fun RegistroScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TextButton(onClick = onNavigateBack) {
+            // Botón volver a Login
+            TextButton(onClick = onNavigateToLogin) {
                 Text("¿Ya tienes cuenta? Inicia sesión")
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

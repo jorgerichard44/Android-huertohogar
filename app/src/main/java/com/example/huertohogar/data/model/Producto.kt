@@ -1,15 +1,19 @@
 package com.example.huertohogar.data.model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-
+@Entity(tableName = "productos")
 data class Producto(
-    val id: String = "",
-    val nombre: String = "",
-    val descripcion: String = "",
-    val precio: Double = 0.0,
-    val categoria: String = "",
-    val origen: String = "",
-    val disponible: Boolean = true,
-    val imagenUrl: String = "",
-    val stock: Int = 0
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+
+    val nombre: String,
+    val descripcion: String,
+    val precio: Double,
+    val stock: Int,
+    val categoria: String, // Ej: "Frutas", "Verduras", "Hortalizas"
+    val imagen: String? = null, // URL o nombre del recurso
+    val unidad: String = "kg", // kg, unidad, etc.
+    val disponible: Boolean = true
 )

@@ -1,10 +1,8 @@
 package com.example.huertohogar.ui.catalogo
 
-
-
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,234 +10,153 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.huertohogar.data.model.ItemPedido
 import com.example.huertohogar.data.model.Producto
-import com.example.huertohogar.data.repository.ProductoRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-
-data class CatalogoUiState(
-    val productos: List<Producto> = emptyList(),
-    val categoriaSeleccionada: String = "Todos",
-    val carrito: List<ItemPedido> = emptyList(),
-    val busqueda: String = ""
-)
-
-class CatalogoViewModel(
-    private val productoRepository: ProductoRepository = ProductoRepository()
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(CatalogoUiState())
-    val uiState: StateFlow<CatalogoUiState> = _uiState
-
-    init {
-        cargarProductos()
-    }
-
-    private fun cargarProductos() {
-        viewModelScope.launch {
-            productoRepository.productos.collect { productos ->
-                _uiState.value = _uiState.value.copy(
-                    productos = filtrarProductos(productos)
-                )
-            }
-        }
-    }
-
-    fun onCategoriaChange(categoria: String) {
-        _uiState.value = _uiState.value.copy(categoriaSeleccionada = categoria)
-        actualizarProductos()
-    }
-
-    fun onBusquedaChange(busqueda: String) {
-        _uiState.value = _uiState.value.copy(busqueda = busqueda)
-        actualizarProductos()
-    }
-
-    private fun actualizarProductos() {
-        viewModelScope.launch {
-            val productos = if (_uiState.value.busqueda.isNotEmpty()) {
-                productoRepository.buscarProductos(_uiState.value.busqueda)
-            } else {
-                productoRepository.filtrarPorCategoria(_uiState.value.categoriaSeleccionada)
-            }
-            _uiState.value = _uiState.value.copy(productos = productos)
-        }
-    }
-
-    private fun filtrarProductos(productos: List<Producto>): List<Producto> {
-        return if (_uiState.value.categoriaSeleccionada == "Todos") {
-            productos
-        } else {
-            productos.filter { it.categoria == _uiState.value.categoriaSeleccionada }
-        }
-    }
-
-    fun agregarAlCarrito(producto: Producto) {
-        val carritoActual = _uiState.value.carrito.toMutableList()
-        val itemExistente = carritoActual.find { it.productoId == producto.id }
-
-        if (itemExistente != null) {
-            val index = carritoActual.indexOf(itemExistente)
-            carritoActual[index] = itemExistente.copy(cantidad = itemExistente.cantidad + 1)
-        } else {
-            carritoActual.add(
-                ItemPedido(
-                    productoId = producto.id,
-                    nombre = producto.nombre,
-                    cantidad = 1,
-                    precioUnitario = producto.precio
-                )
-            )
-        }
-
-        _uiState.value = _uiState.value.copy(carrito = carritoActual)
-    }
-
-    fun obtenerCantidadCarrito(): Int {
-        return _uiState.value.carrito.sumOf { it.cantidad }
-    }
-}
+import com.example.huertohogar.ui.carrito.CarritoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogoScreen(
-    onNavigateToCarrito: () -> Unit,
-    onNavigateToPerfil: () -> Unit,
-    viewModel: CatalogoViewModel = viewModel()
+    viewModel: CatalogoViewModel,
+    carritoViewModel: CarritoViewModel,
+    onNavigateToProductoForm: (Int?) -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    var mostrarSnackbar by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val productos by viewModel.productos.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-    val categorias = listOf("Todos", "Verduras", "Frutas")
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategoria by remember { mutableStateOf("Todos") }
+
+    val categorias = listOf("Todos", "Verduras", "Frutas", "Hortalizas", "Legumbres")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("HuertoHogar") },
-                actions = {
-                    // Botón Carrito con badge
-                    BadgedBox(
-                        badge = {
-                            if (viewModel.obtenerCantidadCarrito() > 0) {
-                                Badge {
-                                    Text(viewModel.obtenerCantidadCarrito().toString())
-                                }
-                            }
-                        }
-                    ) {
-                        IconButton(onClick = onNavigateToCarrito) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito")
-                        }
-                    }
-
-                    // Botón Perfil
-                    IconButton(onClick = onNavigateToPerfil) {
-                        Icon(Icons.Default.Person, contentDescription = "Perfil")
+                title = { Text("Catálogo de Productos") },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, "Menú")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                actions = {
+                    IconButton(onClick = { onNavigateToProductoForm(null) }) {
+                        Icon(Icons.Default.Add, "Agregar Producto")
+                    }
+                }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onNavigateToProductoForm(null) }
+            ) {
+                Icon(Icons.Default.Add, "Agregar")
+            }
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
         ) {
-            // Barra de búsqueda
+            // ✅ Barra de búsqueda
             OutlinedTextField(
-                value = uiState.busqueda,
-                onValueChange = { viewModel.onBusquedaChange(it) },
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    viewModel.buscarProductos(it)
+                },
+                label = { Text("Buscar productos") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Buscar productos...") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = "Buscar")
-                },
                 singleLine = true
             )
 
-            // Filtros de categoría
-            LazyRow(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // ✅ Filtro de categorías
+            ScrollableTabRow(
+                selectedTabIndex = categorias.indexOf(selectedCategoria),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(categorias) { categoria ->
-                    FilterChip(
-                        selected = uiState.categoriaSeleccionada == categoria,
-                        onClick = { viewModel.onCategoriaChange(categoria) },
-                        label = { Text(categoria) }
+                categorias.forEach { categoria ->
+                    Tab(
+                        selected = selectedCategoria == categoria,
+                        onClick = {
+                            selectedCategoria = categoria
+                            viewModel.filtrarPorCategoria(categoria)
+                        },
+                        text = { Text(categoria) }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Lista de productos
-            if (uiState.productos.isEmpty()) {
+            // ✅ Lista de productos
+            if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No se encontraron productos")
+                    CircularProgressIndicator()
+                }
+            } else if (productos.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.ShoppingBag,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No hay productos disponibles",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.productos) { producto ->
+                    items(productos, key = { it.id }) { producto ->
                         ProductoCard(
                             producto = producto,
-                            onAgregarAlCarrito = {
-                                viewModel.agregarAlCarrito(producto)
-                                mostrarSnackbar = true
-                            }
+                            onEdit = { onNavigateToProductoForm(producto.id) },
+                            onDelete = { viewModel.eliminarProducto(producto) },
+                            onAddToCart = { carritoViewModel.agregarProducto(producto) }
                         )
                     }
                 }
             }
         }
     }
-
-    // Mostrar Snackbar cuando se agrega al carrito
-    LaunchedEffect(mostrarSnackbar) {
-        if (mostrarSnackbar) {
-            snackbarHostState.showSnackbar(
-                message = "Producto agregado al carrito",
-                duration = SnackbarDuration.Short
-            )
-            mostrarSnackbar = false
-        }
-    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoCard(
     producto: Producto,
-    onAgregarAlCarrito: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onAddToCart: () -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -250,14 +167,15 @@ fun ProductoCard(
                     Text(
                         text = producto.nombre,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-
-                    Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
                         text = producto.descripcion,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
@@ -266,56 +184,76 @@ fun ProductoCard(
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Place,
-                            contentDescription = "Origen",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = producto.origen,
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "$${producto.precio}",
+                            style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Text(
+                            text = "Stock: ${producto.stock}",
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
-                        text = "Stock: ${producto.stock} unidades",
+                        text = "Origen: ${producto.origen}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (producto.stock > 10) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text(
-                        text = "$${String.format("%.0f", producto.precio)}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = onAgregarAlCarrito,
-                        enabled = producto.disponible && producto.stock > 0
-                    ) {
+                Column {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, "Editar")
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Agregar",
-                            modifier = Modifier.size(18.dp)
+                            Icons.Default.Delete,
+                            "Eliminar",
+                            tint = MaterialTheme.colorScheme.error
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Agregar")
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onAddToCart,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = producto.disponible && producto.stock > 0
+            ) {
+                Icon(Icons.Default.AddShoppingCart, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Agregar al Carrito")
+            }
         }
+    }
+
+    // ✅ Diálogo de confirmación de eliminación
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar Producto") },
+            text = { Text("¿Estás seguro de que deseas eliminar '${producto.nombre}'?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }

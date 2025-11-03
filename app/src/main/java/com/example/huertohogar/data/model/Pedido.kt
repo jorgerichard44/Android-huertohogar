@@ -1,28 +1,28 @@
 package com.example.huertohogar.data.model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.ForeignKey
 
-
+@Entity(
+    tableName = "pedidos",
+    foreignKeys = [
+        ForeignKey(
+            entity = Usuario::class,
+            parentColumns = ["id"],
+            childColumns = ["usuarioId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
 data class Pedido(
-    val id: String = "",
-    val usuarioId: String = "",
-    val productos: List<ItemPedido> = emptyList(),
-    val total: Double = 0.0,
-    val estado: EstadoPedido = EstadoPedido.PENDIENTE,
-    val fechaCreacion: Long = System.currentTimeMillis(),
-    val direccionEntrega: String = ""
-)
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
 
-data class ItemPedido(
-    val productoId: String = "",
-    val nombre: String = "",
-    val cantidad: Int = 0,
-    val precioUnitario: Double = 0.0
+    val usuarioId: Int,
+    val fechaPedido: Long = System.currentTimeMillis(),
+    val total: Double,
+    val estado: String, // "Pendiente", "En proceso", "Enviado", "Entregado"
+    val direccionEntrega: String,
+    val metodoPago: String // "Tarjeta", "Transferencia", "Efectivo"
 )
-
-enum class EstadoPedido {
-    PENDIENTE,
-    EN_PREPARACION,
-    EN_CAMINO,
-    ENTREGADO,
-    CANCELADO
-}

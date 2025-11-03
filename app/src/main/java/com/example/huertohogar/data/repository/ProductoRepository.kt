@@ -1,106 +1,121 @@
 package com.example.huertohogar.data.repository
 
-
-
+import com.example.huertohogar.data.dao.ProductoDao
 import com.example.huertohogar.data.model.Producto
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
-class ProductoRepository {
-    private val _productos = MutableStateFlow<List<Producto>>(emptyList())
-    val productos: StateFlow<List<Producto>> = _productos
+class ProductoRepository(private val productoDao: ProductoDao) {
 
-    init {
-        cargarProductos()
-    }
+    // ✅ Flow de todos los productos (se actualiza automáticamente)
+    val productos: Flow<List<Producto>> = productoDao.obtenerTodosLosProductos()
 
-    private fun cargarProductos() {
-        _productos.value = listOf(
-            Producto(
-                id = "1",
-                nombre = "Tomates Orgánicos",
-                descripcion = "Tomates frescos cultivados sin pesticidas",
-                precio = 2500.0,
-                categoria = "Verduras",
-                origen = "Región Metropolitana",
-                disponible = true,
-                imagenUrl = "",
-                stock = 50
-            ),
-            Producto(
-                id = "2",
-                nombre = "Lechugas Hidropónicas",
-                descripcion = "Lechugas frescas cultivadas en sistema hidropónico",
-                precio = 1800.0,
-                categoria = "Verduras",
-                origen = "Valparaíso",
-                disponible = true,
-                imagenUrl = "",
-                stock = 30
-            ),
-            Producto(
-                id = "3",
-                nombre = "Manzanas Fuji",
-                descripcion = "Manzanas dulces y crujientes",
-                precio = 3200.0,
-                categoria = "Frutas",
-                origen = "Región del Maule",
-                disponible = true,
-                imagenUrl = "",
-                stock = 100
-            ),
-            Producto(
-                id = "4",
-                nombre = "Zanahorias Orgánicas",
-                descripcion = "Zanahorias frescas sin químicos",
-                precio = 1500.0,
-                categoria = "Verduras",
-                origen = "Concepción",
-                disponible = true,
-                imagenUrl = "",
-                stock = 75
-            ),
-            Producto(
-                id = "5",
-                nombre = "Fresas Premium",
-                descripcion = "Fresas dulces de temporada",
-                precio = 4500.0,
-                categoria = "Frutas",
-                origen = "Puerto Montt",
-                disponible = true,
-                imagenUrl = "",
-                stock = 25
-            ),
-            Producto(
-                id = "6",
-                nombre = "Papas Nativas",
-                descripcion = "Papas chilenas de variedades ancestrales",
-                precio = 2000.0,
-                categoria = "Verduras",
-                origen = "Chiloé",
-                disponible = true,
-                imagenUrl = "",
-                stock = 60
+    // ✅ Inicializar datos de prueba si la BD está vacía
+    suspend fun inicializarDatosIniciales() {
+        if (productoDao.contarProductos() == 0) {
+            val productosIniciales = listOf(
+                Producto(
+                    nombre = "Tomates Orgánicos",
+                    descripcion = "Tomates frescos cultivados sin pesticidas",
+                    precio = 2500.0,
+                    categoria = "Verduras",
+                    origen = "Región Metropolitana",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 50
+                ),
+                Producto(
+                    nombre = "Lechugas Hidropónicas",
+                    descripcion = "Lechugas frescas cultivadas en sistema hidropónico",
+                    precio = 1800.0,
+                    categoria = "Verduras",
+                    origen = "Valparaíso",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 30
+                ),
+                Producto(
+                    nombre = "Manzanas Fuji",
+                    descripcion = "Manzanas dulces y crujientes",
+                    precio = 3200.0,
+                    categoria = "Frutas",
+                    origen = "Región del Maule",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 100
+                ),
+                Producto(
+                    nombre = "Zanahorias Orgánicas",
+                    descripcion = "Zanahorias frescas sin químicos",
+                    precio = 1500.0,
+                    categoria = "Verduras",
+                    origen = "Concepción",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 75
+                ),
+                Producto(
+                    nombre = "Fresas Premium",
+                    descripcion = "Fresas dulces de temporada",
+                    precio = 4500.0,
+                    categoria = "Frutas",
+                    origen = "Puerto Montt",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 25
+                ),
+                Producto(
+                    nombre = "Papas Nativas",
+                    descripcion = "Papas chilenas de variedades ancestrales",
+                    precio = 2000.0,
+                    categoria = "Verduras",
+                    origen = "Chiloé",
+                    disponible = true,
+                    imagenUrl = "",
+                    stock = 60
+                )
             )
-        )
+
+            productoDao.insertarProductos(productosIniciales)
+        }
     }
 
-    fun obtenerProductoPorId(id: String): Producto? {
-        return _productos.value.find { it.id == id }
+    // ✅ Obtener producto por ID
+    suspend fun obtenerProductoPorId(id: Int): Producto? {
+        return productoDao.obtenerProductoPorId(id)
     }
 
-    fun filtrarPorCategoria(categoria: String): List<Producto> {
+    // ✅ Filtrar por categoría
+    fun filtrarPorCategoria(categoria: String): Flow<List<Producto>> {
         return if (categoria == "Todos") {
-            _productos.value
+            productoDao.obtenerTodosLosProductos()
         } else {
-            _productos.value.filter { it.categoria == categoria }
+            productoDao.filtrarPorCategoria(categoria)
         }
     }
 
-    fun buscarProductos(query: String): List<Producto> {
-        return _productos.value.filter {
-            it.nombre.contains(query, ignoreCase = true) ||
-                    it.descripcion.contains(query, ignoreCase = true)
-        }
+    // ✅ Buscar productos
+    fun buscarProductos(query: String): Flow<List<Producto>> {
+        return productoDao.buscarProductos(query)
+    }
+
+    // ✅ Insertar producto
+    suspend fun insertarProducto(producto: Producto) {
+        productoDao.insertarProducto(producto)
+    }
+
+    // ✅ Actualizar producto
+    suspend fun actualizarProducto(producto: Producto) {
+        productoDao.actualizarProducto(producto)
+    }
+
+    // ✅ Eliminar producto
+    suspend fun eliminarProducto(producto: Producto) {
+        productoDao.eliminarProducto(producto)
+    }
+
+    // ✅ Actualizar stock
+    suspend fun actualizarStock(productoId: Int, nuevoStock: Int) {
+        productoDao.actualizarStock(productoId, nuevoStock)
     }
 }

@@ -1,9 +1,8 @@
 package com.example.huertohogar.ui.perfil
 
-
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,154 +10,55 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.huertohogar.data.model.Usuario
-import com.example.huertohogar.data.repository.AuthRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-
-data class PerfilUiState(
-    val usuario: Usuario? = null,
-    val modoEdicion: Boolean = false,
-    val nombre: String = "",
-    val telefono: String = "",
-    val direccion: String = "",
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val actualizacionExitosa: Boolean = false
-)
-
-class PerfilViewModel(
-    private val authRepository: AuthRepository = AuthRepository()
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(PerfilUiState())
-    val uiState: StateFlow<PerfilUiState> = _uiState
-
-    init {
-        cargarPerfil()
-    }
-
-    private fun cargarPerfil() {
-        viewModelScope.launch {
-            authRepository.currentUser.collect { usuario ->
-                _uiState.value = _uiState.value.copy(
-                    usuario = usuario,
-                    nombre = usuario?.nombre ?: "",
-                    telefono = usuario?.telefono ?: "",
-                    direccion = usuario?.direccion ?: ""
-                )
-            }
-        }
-    }
-
-    fun activarModoEdicion() {
-        _uiState.value = _uiState.value.copy(modoEdicion = true)
-    }
-
-    fun cancelarEdicion() {
-        val usuario = _uiState.value.usuario
-        _uiState.value = _uiState.value.copy(
-            modoEdicion = false,
-            nombre = usuario?.nombre ?: "",
-            telefono = usuario?.telefono ?: "",
-            direccion = usuario?.direccion ?: "",
-            errorMessage = null
-        )
-    }
-
-    fun onNombreChange(nombre: String) {
-        _uiState.value = _uiState.value.copy(nombre = nombre, errorMessage = null)
-    }
-
-    fun onTelefonoChange(telefono: String) {
-        _uiState.value = _uiState.value.copy(telefono = telefono, errorMessage = null)
-    }
-
-    fun onDireccionChange(direccion: String) {
-        _uiState.value = _uiState.value.copy(direccion = direccion, errorMessage = null)
-    }
-
-    fun guardarCambios() {
-        viewModelScope.launch {
-            val state = _uiState.value
-            val usuario = state.usuario ?: return@launch
-
-            if (state.nombre.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "El nombre es obligatorio")
-                return@launch
-            }
-
-            if (state.telefono.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "El teléfono es obligatorio")
-                return@launch
-            }
-
-            if (state.direccion.isBlank()) {
-                _uiState.value = state.copy(errorMessage = "La dirección es obligatoria")
-                return@launch
-            }
-
-            _uiState.value = state.copy(isLoading = true, errorMessage = null)
-
-            val usuarioActualizado = usuario.copy(
-                nombre = state.nombre,
-                telefono = state.telefono,
-                direccion = state.direccion
-            )
-
-            val result = authRepository.actualizarPerfil(usuarioActualizado)
-
-            result.fold(
-                onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        modoEdicion = false,
-                        actualizacionExitosa = true
-                    )
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "Error desconocido"
-                    )
-                }
-            )
-        }
-    }
-
-    fun resetearActualizacion() {
-        _uiState.value = _uiState.value.copy(actualizacionExitosa = false)
-    }
-
-    fun cerrarSesion() {
-        authRepository.logout()
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PerfilScreen(
-    onNavigateBack: () -> Unit,
-    onLogout: () -> Unit,
-    viewModel: PerfilViewModel = viewModel()
+    viewModel: PerfilViewModel,
+    usuarioId: Int,
+    onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var mostrarDialogoCerrarSesion by remember { mutableStateOf(false) }
+    val usuario by viewModel.usuario.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val actualizacionExitosa by viewModel.actualizacionExitosa.collectAsState()
 
-    LaunchedEffect(uiState.actualizacionExitosa) {
-        if (uiState.actualizacionExitosa) {
-            snackbarHostState.showSnackbar(
-                message = "Perfil actualizado correctamente",
-                duration = SnackbarDuration.Short
-            )
-            viewModel.resetearActualizacion()
+    var nombre by remember { mutableStateOf("") }
+    var apellido by remember { mutableStateOf("") }
+    var telefono by remember { mutableStateOf("") }
+    var direccion by remember { mutableStateOf("") }
+    var ciudad by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf("") }
+
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showSuccessSnackbar by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Cargar datos del usuario
+    LaunchedEffect(usuarioId) {
+        viewModel.cargarUsuario(usuarioId)
+    }
+
+    // Actualizar campos cuando se cargue el usuario
+    LaunchedEffect(usuario) {
+        usuario?.let {
+            nombre = it.nombre
+            apellido = it.apellido
+            telefono = it.telefono
+            direccion = it.direccion
+            ciudad = it.ciudad
+            region = it.region
+        }
+    }
+
+    // Mostrar mensaje de éxito
+    LaunchedEffect(actualizacionExitosa) {
+        if (actualizacionExitosa) {
+            snackbarHostState.showSnackbar("Perfil actualizado correctamente")
         }
     }
 
@@ -168,348 +68,285 @@ fun PerfilScreen(
                 title = { Text("Mi Perfil") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, "Volver")
                     }
-                },
-                actions = {
-                    if (!uiState.modoEdicion) {
-                        IconButton(onClick = { viewModel.activarModoEdicion() }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Editar")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp)
-        ) {
-            // Avatar y nombre
+    ) { padding ->
+        if (isLoading && usuario == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Surface(
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Avatar
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
                     modifier = Modifier.size(100.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Avatar",
-                            modifier = Modifier.size(60.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+                    tint = MaterialTheme.colorScheme.primary
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                if (!uiState.modoEdicion) {
+                // Email (no editable)
+                usuario?.let {
                     Text(
-                        text = uiState.usuario?.nombre ?: "",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = uiState.usuario?.email ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = it.email,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            if (uiState.modoEdicion) {
-                // Modo edición
-                Text(
-                    text = "Editar Información",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                // Nombre
                 OutlinedTextField(
-                    value = uiState.nombre,
-                    onValueChange = { viewModel.onNombreChange(it) },
-                    label = { Text("Nombre Completo") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = "Nombre")
-                    },
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre") },
+                    leadingIcon = { Icon(Icons.Default.Person, null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
+                // Apellido
                 OutlinedTextField(
-                    value = uiState.telefono,
-                    onValueChange = { viewModel.onTelefonoChange(it) },
+                    value = apellido,
+                    onValueChange = { apellido = it },
+                    label = { Text("Apellido") },
+                    leadingIcon = { Icon(Icons.Default.Person, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Teléfono
+                OutlinedTextField(
+                    value = telefono,
+                    onValueChange = { telefono = it },
                     label = { Text("Teléfono") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Phone, contentDescription = "Teléfono")
-                    },
+                    leadingIcon = { Icon(Icons.Default.Phone, null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
+                // Dirección
                 OutlinedTextField(
-                    value = uiState.direccion,
-                    onValueChange = { viewModel.onDireccionChange(it) },
+                    value = direccion,
+                    onValueChange = { direccion = it },
                     label = { Text("Dirección") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Home, contentDescription = "Dirección")
+                    leadingIcon = { Icon(Icons.Default.Home, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Ciudad
+                OutlinedTextField(
+                    value = ciudad,
+                    onValueChange = { ciudad = it },
+                    label = { Text("Ciudad") },
+                    leadingIcon = { Icon(Icons.Default.LocationCity, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Región
+                OutlinedTextField(
+                    value = region,
+                    onValueChange = { region = it },
+                    label = { Text("Región") },
+                    leadingIcon = { Icon(Icons.Default.Place, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Botón Guardar Cambios
+                Button(
+                    onClick = {
+                        usuario?.let {
+                            viewModel.actualizarUsuario(
+                                it.copy(
+                                    nombre = nombre,
+                                    apellido = apellido,
+                                    telefono = telefono,
+                                    direccion = direccion,
+                                    ciudad = ciudad,
+                                    region = region
+                                )
+                            )
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3
-                )
-
-                if (uiState.errorMessage != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = uiState.errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    enabled = nombre.isNotBlank() &&
+                            apellido.isNotBlank() &&
+                            telefono.isNotBlank() &&
+                            !isLoading
                 ) {
-                    OutlinedButton(
-                        onClick = { viewModel.cancelarEdicion() },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancelar")
-                    }
-
-                    Button(
-                        onClick = { viewModel.guardarCambios() },
-                        modifier = Modifier.weight(1f),
-                        enabled = !uiState.isLoading
-                    ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Text("Guardar")
-                        }
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Default.Save, null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Guardar Cambios")
                     }
                 }
-            } else {
-                // Modo visualización
-                PerfilInfoCard(
-                    titulo = "Información Personal",
-                    items = listOf(
-                        "Email" to (uiState.usuario?.email ?: ""),
-                        "Teléfono" to (uiState.usuario?.telefono ?: ""),
-                        "Dirección" to (uiState.usuario?.direccion ?: "")
-                    )
-                )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Opciones adicionales
-                Card(
+                // Botón Cambiar Contraseña
+                OutlinedButton(
+                    onClick = { showPasswordDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Opciones",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        PerfilOpcion(
-                            icono = Icons.Default.ShoppingCart,
-                            titulo = "Mis Pedidos",
-                            onClick = { /* Navegar a pedidos */ }
-                        )
-
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        PerfilOpcion(
-                            icono = Icons.Default.Favorite,
-                            titulo = "Favoritos",
-                            onClick = { /* Navegar a favoritos */ }
-                        )
-
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        PerfilOpcion(
-                            icono = Icons.Default.Settings,
-                            titulo = "Configuración",
-                            onClick = { /* Navegar a configuración */ }
-                        )
-
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        PerfilOpcion(
-                            icono = Icons.Default.Info,
-                            titulo = "Acerca de",
-                            onClick = { /* Mostrar info */ }
-                        )
-                    }
+                    Icon(Icons.Default.Lock, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Cambiar Contraseña")
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-
-                // Botón cerrar sesión
-                OutlinedButton(
-                    onClick = { mostrarDialogoCerrarSesion = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar sesión")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cerrar Sesión")
-                }
             }
         }
     }
 
-    // Diálogo de confirmación para cerrar sesión
-    if (mostrarDialogoCerrarSesion) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoCerrarSesion = false },
-            icon = {
-                Icon(Icons.Default.ExitToApp, contentDescription = null)
-            },
-            title = {
-                Text("Cerrar Sesión")
-            },
-            text = {
-                Text("¿Estás seguro que deseas cerrar sesión?")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.cerrarSesion()
-                        mostrarDialogoCerrarSesion = false
-                        onLogout()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Cerrar Sesión")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { mostrarDialogoCerrarSesion = false }
-                ) {
-                    Text("Cancelar")
-                }
+    // Diálogo para cambiar contraseña
+    if (showPasswordDialog) {
+        CambiarPasswordDialog(
+            onDismiss = { showPasswordDialog = false },
+            onConfirm = { nuevaPassword ->
+                viewModel.actualizarPassword(usuarioId, nuevaPassword)
+                showPasswordDialog = false
             }
         )
     }
 }
 
 @Composable
-fun PerfilInfoCard(
-    titulo: String,
-    items: List<Pair<String, String>>
+fun CambiarPasswordDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = titulo,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+    var nuevaPassword by remember { mutableStateOf("") }
+    var confirmarPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmarVisible by remember { mutableStateOf(false) }
 
-            Spacer(modifier = Modifier.height(16.dp))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cambiar Contraseña") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nuevaPassword,
+                    onValueChange = { nuevaPassword = it },
+                    label = { Text("Nueva Contraseña") },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                if (passwordVisible) Icons.Default.Visibility
+                                else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    visualTransformation = if (passwordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
 
-            items.forEach { (label, value) ->
-                Column {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = confirmarPassword,
+                    onValueChange = { confirmarPassword = it },
+                    label = { Text("Confirmar Contraseña") },
+                    trailingIcon = {
+                        IconButton(onClick = { confirmarVisible = !confirmarVisible }) {
+                            Icon(
+                                if (confirmarVisible) Icons.Default.Visibility
+                                else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    visualTransformation = if (confirmarVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = confirmarPassword.isNotEmpty() && nuevaPassword != confirmarPassword
+                )
+
+                if (confirmarPassword.isNotEmpty() && nuevaPassword != confirmarPassword) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Las contraseñas no coinciden",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
+                }
+
+                if (nuevaPassword.isNotEmpty() && nuevaPassword.length < 6) {
                     Text(
-                        text = value,
-                        style = MaterialTheme.typography.bodyLarge
+                        text = "La contraseña debe tener al menos 6 caracteres",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
-                    if (items.last() != (label to value)) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun PerfilOpcion(
-    icono: androidx.compose.ui.graphics.vector.ImageVector,
-    titulo: String,
-    onClick: () -> Unit
-) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(nuevaPassword) },
+                enabled = nuevaPassword.isNotBlank() &&
+                        nuevaPassword == confirmarPassword &&
+                        nuevaPassword.length >= 6
             ) {
-                Icon(
-                    icono,
-                    contentDescription = titulo,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = titulo,
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Text("Cambiar")
             }
-            Icon(
-                Icons.Default.KeyboardArrowRight,
-                contentDescription = "Ir",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
         }
-    }
+    )
 }
